@@ -52,16 +52,16 @@ function commitRoot() {
 function commitWork(fiber) {
 	if (!fiber) return;
 
-  let domParentFiber = fiber.parent
-  while (!domParentFiber.dom) {
-    domParentFiber = domParentFiber.parent
-  }
+	let domParentFiber = fiber.parent;
+	while (!domParentFiber.dom) {
+		domParentFiber = domParentFiber.parent;
+	}
 	const parentDom = domParentFiber.dom;
 
 	if (fiber.effectTag === 'PLACEMENT' && fiber.dom) {
 		parentDom.append(fiber.dom);
 	} else if (fiber.effectTag == 'DELETION' && fiber.dom) {
-		commitDeletion(fiber, parentDom)
+		commitDeletion(fiber, parentDom);
 	} else if (fiber.effectTag === 'UPDATE' && fiber.dom) {
 		updateDom(fiber.dom, fiber.alternate.props, fiber.props);
 	}
@@ -70,11 +70,11 @@ function commitWork(fiber) {
 }
 
 function commitDeletion(fiber, domParent) {
-  if (fiber.dom) {
-    domParent.removeChild(fiber.dom)
-  } else {
-    commitDeletion(filter.child, domParent)
-  }
+	if (fiber.dom) {
+		domParent.removeChild(fiber.dom);
+	} else {
+		commitDeletion(filter.child, domParent);
+	}
 }
 
 function updateDom(dom, prevProps, nextProps) {
@@ -83,19 +83,19 @@ function updateDom(dom, prevProps, nextProps) {
 	Object.keys(prevProps)
 		.filter(isEvent)
 		.filter((key) => !key in nextProps || prevProps[key] !== nextProps[key])
-    .forEach((key) => {
-      const eventType = key.toLowerCase().substring(2)
-      dom.removeEventListener(eventType, prevProps[key])
-    })
+		.forEach((key) => {
+			const eventType = key.toLowerCase().substring(2);
+			dom.removeEventListener(eventType, prevProps[key]);
+		});
 
-  // 添加事件处理函数
-  Object.keys(nextProps)
+	// 添加事件处理函数
+	Object.keys(nextProps)
 		.filter(isEvent)
 		.filter((key) => prevProps[key] !== nextProps[key])
-    .forEach((key) => {
-      const eventType = key.toLowerCase().substring(2)
-      dom.addEventListener(eventType, nextProps[key])
-    })
+		.forEach((key) => {
+			const eventType = key.toLowerCase().substring(2);
+			dom.addEventListener(eventType, nextProps[key]);
+		});
 
 	// 删除已经没有的props
 	Object.keys(prevProps)
@@ -136,13 +136,12 @@ function workLopp(deadLine) {
 requestIdleCallback(workLopp);
 
 function performUnitOfWork(fiber) {
-
-  const isFunctionComponent = fiber.type instanceof Function
-  if (isFunctionComponent) {
-    updateFunctionComponent(fiber)
-  } else {
-    updateHostComponent(fiber)
-  }
+	const isFunctionComponent = fiber.type instanceof Function;
+	if (isFunctionComponent) {
+		updateFunctionComponent(fiber);
+	} else {
+		updateHostComponent(fiber);
+	}
 
 	// // 追加父节点
 	// if (fiber.parent) {
@@ -164,21 +163,60 @@ function performUnitOfWork(fiber) {
 
 // 处理非函数式组件
 function updateHostComponent(fiber) {
-  // 创建dom元素
+	// 创建dom元素
 	if (!fiber.dom) {
 		fiber.dom = createDom(fiber);
 	}
 
-  // 给children新建fiber
+	// 给children新建fiber
 	const elements = fiber.props.children;
-  // 新建newFiber，构建fiber
+	// 新建newFiber，构建fiber
 	reconcileChildren(fiber, elements);
 }
 
+// 记住上一次的fiber
+let wipFiber = null;
+let hookIndex = null;
+
 // 处理函数式组件
 function updateFunctionComponent(fiber) {
-  const children = [fiber.type(fiber.props)]
-  reconcileChildren(fiber, children)
+	wipFiber = fiber;
+	hookIndex = 0;
+	wipFiber.hooks = [];
+	const children = [fiber.type(fiber.props)];
+	reconcileChildren(fiber, children);
+}
+
+export function useState(init) {
+	const oldHook =
+		wipFiber.alternate &&
+		wipFiber.alternate.hooks &&
+		wipFiber.alternate.hooks[hookIndex];
+
+  const hook = {
+    state: oldHook ? oldHook.state : init,
+    queue: []
+  }
+
+  const actions = oldHook ? oldHook.queue : []
+  actions.forEach((action) => {
+    hook.state = action(hook.state)
+  })
+
+  const setState = (action) => {
+    hook.queue.push(action)
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot
+    }
+    nextUnitOfWork = wipRoot
+    deletion = []
+  }
+
+  wipFiber.hooks.push(hook)
+  hookIndex++
+  return [hook.state, setState]
 }
 
 function reconcileChildren(wipFiber, elements) {
