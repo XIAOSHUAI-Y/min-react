@@ -1,14 +1,18 @@
 import { createElement, render } from "../micro-react";
 
-const element = createElement(
-  'h1',
-  { id: 'title', style: 'background: blue'},
-  'hello world',
-  createElement('h2')
-)
+const handleInput = (e) => {
+  renderer(e.target.value)
+}
 
-const container = document.querySelector('#root')
+const renderer = (value) => {
+  const container = document.querySelector('#root')
+  const element = createElement(
+    'dev',
+    null,
+    createElement('input', { oninput: (e) => handleInput(e) }, null),
+    createElement('h1', null, value)
+  )
+  render(element, container)
+}
 
-render(element, container)
-
-console.log(element)
+renderer('hello')
